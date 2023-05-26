@@ -1,0 +1,81 @@
+version: '3.3'
+
+services:
+  my_db-node-01:
+    build:
+      context: mariadb
+      dockerfile: Dockerfile
+    container_name: my_db-node-01
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: serv_store
+      MYSQL_USER: myyuser
+      MYSQL_PASSWORD: 123
+      MYSQL_ROOT_PASSWORD: '1'
+    command: >
+      --sql-mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'
+      --general-log=ON
+      --log-queries-not-using-indexes=ON
+    networks:
+      - arch_network
+    ports:
+      - 3360:3306
+    healthcheck:
+      test: "/usr/bin/mysql --user=myyuser --password=123 --execute \"SHOW DATABASES;\""
+      timeout: 20s
+      retries: 5
+    volumes:
+      - my_db-node-01-data:/var/lib/mysql
+
+  user_service:
+    build:
+      context: apps/user
+      dockerfile: Dockerfile
+    container_name: user_applicaiton
+    env_file:
+      - .env
+    ports:
+      - 8082:8082
+    networks:
+      - arch_network
+    depends_on:
+      my_db-node-01:
+        condition: service_healthy
+  
+  service_service:
+    build:
+      context: apps/service
+      dockerfile: Dockerfile
+    container_name: service_application
+    env_file:
+      - .env
+    ports:
+      - 8083:8083
+    networks:
+      - arch_network
+    depends_on:
+      my_db-node-01:
+        condition: service_healthy
+  
+  order_service:
+    build:
+      context: apps/order
+      dockerfile: Dockerfile
+    container_name: order_application
+    env_file:
+      - .env
+    ports:
+      - 8090:8090
+    networks:
+      - arch_network
+    depends_on:
+      my_db-node-01:
+        condition: service_healthy
+
+volumes:
+  my_db-node-01-data:
+
+networks:
+  arch_network:
+    driver: "bridge"
+    external: false
