@@ -23,8 +23,13 @@ namespace database
     {
         try
         {
-
             Poco::Data::Session session = database::Database::get().create_session();
+            Poco::JSON::Object::NameList hints = database::Database::get_all_hints();
+            for(Poco::JSON::Object::NameList::iterator hint = hints.begin();
+                hint != hints.end();
+                ++hint)
+            {
+
             Statement create_stmt(session);
             create_stmt << "CREATE TABLE IF NOT EXISTS `user` (`id` BIGINT AUTO_INCREMENT,"
                         << "`first_name` VARCHAR(256) NOT NULL,"
@@ -33,8 +38,10 @@ namespace database
                         << "`password` VARCHAR(256) NOT NULL,"
                         << "`email` VARCHAR(256) NULL,"
                         << "PRIMARY KEY (`id`),KEY `fn` (`first_name`),KEY `ln` (`last_name`)"
-                        << ",KEY `KI_login` (`login`));",
-                now;
+                        << ",KEY `KI_login` (`login`));"
+                        << *hint,   
+                        now;
+            }
         }
 
         catch (const Poco::Data::MySQL::ConnectionException& e)
@@ -83,22 +90,27 @@ namespace database
 
     std::optional<long> User::auth(std::string &login, std::string &password, long& type)
     {
-        std::string selectstat = ((type == 1) ? "SELECT id FROM User where login=? and password=?" :
-                                    "SELECT id FROM User where email=? and password=?");
+        std::string selectstat = ((type == 1) ? " SELECT id FROM User where login=? and password=? " :
+                                    " SELECT id FROM User where email=? and password=? ");
         try
         {
             Poco::Data::Session session = database::Database::get().create_session();
             Poco::Data::Statement select(session);
             long id;
-            select << selectstat,
-                into(id),
-                use(login),
-                use(password),
-                range(0, 1); //  iterate over result set one row at a time
+            for(size_t i = 0; i < database::Database::get_max_shard(); ++i)
+            {
+                select << selectstat,
+                    into(id),
+                    use(login),
+                    use(password),
+                    range(0, 1); //  iterate over result set one row at a time
 
-            select.execute();
-            Poco::Data::RecordSet rs(select);
-            if (rs.moveFirst()) return id;
+                select.execute();
+                Poco::Data::RecordSet rs(select);
+                if (rs.moveFirst()) return id;
+                std::string shard = " -- sharding:1 ";
+                selectstat += shard;
+            }
         }
 
         catch (const Poco::Data::MySQL::ConnectionException &e)
@@ -120,8 +132,11 @@ namespace database
             Poco::Data::Session session = database::Database::get().create_session();
             Poco::Data::Statement select(session);
             std::cout << 1;
+            std::string selector = " SELECT id, first_name, last_name, email, login, password FROM user where id=? ";
             User a;
-            std::string selector = "SELECT id, first_name, last_name, email, login, password FROM user where id=?";
+            for (size_t i = 0; i < database::Database::get_max_shard(); ++i)
+            {
+            Poco::Data::Statement select(session);
             select << selector,
                 into(a._id),
                 into(a._first_name),
@@ -134,6 +149,9 @@ namespace database
             select.execute();
             Poco::Data::RecordSet rs(select);
             if (rs.moveFirst()) return a;
+            }
+            std::string shard = "-- sharding:1";
+            selector += shard;
         }
 
         catch (const Poco::Data::MySQL::ConnectionException &e)
@@ -154,22 +172,28 @@ namespace database
         try
         {
             Poco::Data::Session session = database::Database::get().create_session();
-            Poco::Data::Statement select(session);
             std::vector<User> result;
             User a;
-            select << "SELECT id, first_name, last_name, email, login, password FROM user",
-                into(a._id),
-                into(a._first_name),
-                into(a._last_name),
-                into(a._email),
-                into(a._login),
-                into(a._password),
-                range(0, 1); //  iterate over result set one row at a time
-
-            while (!select.done())
+            std::string sqlText = " SELECT id, first_name, last_name, email, login, password FROM user ";
+            for(size_t i = 0; i < database::Database::get_max_shard(); ++i)
             {
-                if (select.execute())
-                    result.push_back(a);
+                Poco::Data::Statement select(session);
+                select << sqlText,
+                    into(a._id),
+                    into(a._first_name),
+                    into(a._last_name),
+                    into(a._email),
+                    into(a._login),
+                    into(a._password),
+                    range(0, 1); //  iterate over result set one row at a time
+
+                while (!select.done())
+                {
+                    if (select.execute())
+                        result.push_back(a);
+                }
+                std::string shard = " -- sharding:1 ";
+                sqlText += shard;
             }
             return result;
         }
@@ -192,12 +216,17 @@ namespace database
         try
         {
             Poco::Data::Session session = database::Database::get().create_session();
-            Statement select(session);
             std::vector<User> result;
             User a;
             first_name += "%";
+            first_name = "%" + first_name;
             last_name += "%";
-            select << "SELECT id, first_name, last_name, email, login, password FROM user where first_name LIKE ? and last_name LIKE ?",
+            last_name = "%" + last_name;
+            std::string sqlText = " SELECT id, first_name, last_name, email, login, password FROM user where first_name LIKE ? and last_name LIKE ? ";
+            for(size_t i = 0; i < database::Database::get_max_shard(); ++i)
+            {
+                Statement select(session);
+                select << sqlText,
                 into(a._id),
                 into(a._first_name),
                 into(a._last_name),
@@ -208,13 +237,16 @@ namespace database
                 use(last_name),
                 range(0, 1); //  iterate over result set one row at a time
 
-            while (!select.done())
-            {
-                if (select.execute())
-                    result.push_back(a);
+                while (!select.done())
+                {
+                    if (select.execute())
+                        result.push_back(a);
+                }
+                std::string shard = " -- sharding:1 ";
+                sqlText += shard;
             }
             return result;
-        }
+       }
 
         catch (const Poco::Data::MySQL::ConnectionException &e)
         {
@@ -236,23 +268,28 @@ namespace database
         try
         {
             Poco::Data::Session session = database::Database::get().create_session();
-            Poco::Data::Statement query(session);
             User a;
             std::string tmp = login + "%";
             login = "%" + tmp; 
-            query << "select id, first_name, last_name, email, login, password from serv_store.user "
-                  << " where login like ? ",
-            into(a._id),
-            into(a._first_name),
-            into(a._last_name),
-            into(a._email),
-            into(a._login),
-            into(a._password),
-            use(login),
-            range(0, 1);
-            query.execute();
-            Poco::Data::RecordSet res(query);
-            if(res.moveFirst()){return a;}
+            std::string sqlText = " select id, first_name, last_name, email, login, password from serv_store.user where login like ? ";
+            for(size_t i = 0; i < database::Database::get_max_shard(); ++i)
+            {
+                Poco::Data::Statement query(session);
+                query << sqlText ,
+                into(a._id),
+                into(a._first_name),
+                into(a._last_name),
+                into(a._email),
+                into(a._login),
+                into(a._password),
+                use(login),
+                range(0, 1);
+                query.execute();
+                Poco::Data::RecordSet res(query);
+                if(res.moveFirst()){return a;}
+                std::string test = " -- sharding:1 ";
+                sqlText += test;
+            }
         }
         catch (const Poco::Data::MySQL::ConnectionException &e)
         {

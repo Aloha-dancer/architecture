@@ -1,10 +1,10 @@
-version: '2.4'
+version: '3.3'
 
 services:
   my_db-node-01:
     build:
       context: ./
-      dockerfile: mariadb/Dockerfile
+      dockerfile: docker/Dockerfile
     container_name: my_db-node-01
     restart: unless-stopped
     environment:
@@ -27,14 +27,64 @@ services:
     volumes:
       - my_db-node-01-data:/var/lib/mysql
 
+  my_db-node-02:
+    build:
+      context: ./
+      dockerfile: docker/Dockerfile
+    container_name: my_db-node-02
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: serv_store
+      MYSQL_USER: myyuser
+      MYSQL_PASSWORD: 123
+      MYSQL_ROOT_PASSWORD: '1'
+    command: >
+      --sql-mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'
+      --general-log=ON
+      --log-queries-not-using-indexes=ON
+    networks:
+      - arch_network
+    ports:
+      - 3361:3306
+    volumes:
+      - my_db-node-02-data:/var/lib/mysql
+    healthcheck:
+      test: "/usr/bin/mysql --user=myyuser --password=123 --execute \"SHOW DATABASES;\""
+      timeout: 20s
+      retries: 5
+
+  proxysql:
+    build:
+      context: ./
+      dockerfile: docker/proxysql/Dockerfile
+    container_name: proxysql
+    command: >
+      --initial
+    volumes:
+      - proxysql-data:/var/lib/proxysql
+    healthcheck:
+      test: "/usr/bin/mysql --user=myyuser --password=123 --execute \"SHOW DATABASES;\""
+      timeout: 20s
+      retries: 5
+    depends_on:
+      - my_db-node-01
+      - my_db-node-02
+    networks:
+      - arch_network
+    ports:
+      # Mysql Client Port
+      - "6033:6033"
+      # Mysql Admin Port
+      - "6032:6032"
+  
   user_service:
     build:
       context: ./
       dockerfile: user/Dockerfile
     container_name: user_service
     environment:
-      - DB_HOST=my_db-node-01
-      - DB_PORT=3306
+      - DB_HOST=proxysql
+      - DB_PORT=6033
       - DB_LOGIN=myyuser
       - DB_PASSWORD=123
       - DB_DATABASE=serv_store
@@ -43,8 +93,9 @@ services:
     networks:
       - arch_network
     depends_on:
-      my_db-node-01:
-        condition: service_healthy
+    -  my_db-node-01
+    -  my_db-node-02
+    -  proxysql
   
   serving_service:
     build:
@@ -52,8 +103,8 @@ services:
       dockerfile: service/Dockerfile
     container_name: serving_service
     environment:
-      - DB_HOST=my_db-node-01
-      - DB_PORT=3306
+      - DB_HOST=proxysql
+      - DB_PORT=6033
       - DB_LOGIN=myyuser
       - DB_PASSWORD=123
       - DB_DATABASE=serv_store
@@ -62,8 +113,9 @@ services:
     networks:
       - arch_network
     depends_on:
-      my_db-node-01:
-        condition: service_healthy
+    - my_db-node-01
+    - my_db-node-02
+    - proxysql
   
   order_service:
     build:
@@ -71,8 +123,8 @@ services:
       dockerfile: order/Dockerfile
     container_name: order_service
     environment:
-      - DB_HOST=my_db-node-01
-      - DB_PORT=3306
+      - DB_HOST=proxysql
+      - DB_PORT=6033
       - DB_LOGIN=myyuser
       - DB_PASSWORD=123
       - DB_DATABASE=serv_store
@@ -81,11 +133,14 @@ services:
     networks:
       - arch_network
     depends_on:
-      my_db-node-01:
-        condition: service_healthy
+    -  my_db-node-01
+    -  my_db-node-02
+    -  proxysql
 
 volumes:
   my_db-node-01-data:
+  my_db-node-02-data:
+  proxysql-data:
 
 networks:
   arch_network:

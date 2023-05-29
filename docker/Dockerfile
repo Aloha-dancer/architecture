@@ -6,8 +6,8 @@ RUN apt-get clean && apt-get update --fix-missing && \
     apt install -y nano ssh inetutils-ping net-tools htop telnet curl redis-tools ncdu rsync whois dnsutils git zip gosu wget percona-toolkit;
 
 # MySQL Custom Configs
-COPY mariadb/my.cnf /etc/mysql/
-COPY mariadb/mysql.conf.d/ /etc/mysql/mysql.conf.d/
+COPY docker/my.cnf /etc/mysql/
+COPY docker/mysql.conf.d/ /etc/mysql/mysql.conf.d/
 
 # Touching log files
 RUN touch -a /var/log/mysql/error.log && chown mysql:adm /var/log/mysql/error.log
