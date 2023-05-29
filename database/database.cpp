@@ -27,8 +27,7 @@ namespace database{
     Poco::Data::Session Database::create_session(){
         return Poco::Data::Session(_pool->get());
     }
-
-        size_t Database::get_max_shard(){
+    size_t Database::get_max_shard(){
         return 2;
     }
 

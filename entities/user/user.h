@@ -52,6 +52,7 @@ namespace database
 
             Poco::JSON::Object::Ptr toJSON() const;
 
+
     };
 }
 

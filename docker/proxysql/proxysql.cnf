@@ -84,3 +84,4 @@ mysql_query_rules:
         apply=1
     }
 )
+

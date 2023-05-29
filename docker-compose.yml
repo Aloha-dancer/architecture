@@ -96,7 +96,7 @@ services:
     -  my_db-node-01
     -  my_db-node-02
     -  proxysql
-  
+    
   serving_service:
     build:
       context: ./

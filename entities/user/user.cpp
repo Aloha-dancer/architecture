@@ -298,7 +298,6 @@ namespace database
         }
         catch (const Poco::Data::MySQL::StatementException &e)
         {
-
             std::cout << "statement:" << e.what() << std::endl;
             throw;
         }

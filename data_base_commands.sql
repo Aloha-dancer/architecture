@@ -65,7 +65,6 @@ alter table `order` modify id bigint not null;
 alter table `order` drop Primary key;
 alter table `order` add primary key (id, id_user, id_service);
 
-
 select * from `order` o ;
 select * from `user` u ;
 select * from `service` s ;
