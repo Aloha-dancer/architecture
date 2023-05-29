@@ -1,4 +1,5 @@
 CMakeFiles/*
 .vscode/*
 build/*
-tests.cpp
+*_service
+
