@@ -1,0 +1,355 @@
+openapi: '3.0.0'
+info:
+  version: '1.0.0'
+  title: 'Services_APIes'
+  description: specification for services API methods
+
+servers:
+  - url: http://localhost:8082
+    description: user_app
+    paths:
+      /user:
+        get:
+          tags:
+          - default
+          summary: Тест конекта
+          responses:
+            '200':
+              description: Sucessful response
+              content:
+                application/json: {}
+
+      /searchID:
+        get:
+          tags:
+          - default
+          summary: Поиск пользователя по уникальному идентификатору
+          parameters:
+          - name: id
+            description: Идентификатор пользователя
+            in: query
+            required: true
+            schema:
+              type: integer
+          responses:
+            '200': 
+              description: Пользователь успешно найден
+              content:
+                application/json: {}
+            '404':
+              description: Пользователь не найден
+
+      /searchLog:
+        get:
+          tags:
+          - default
+          summary: Поиск пользователя по логину
+          parameters:
+          - name: login
+            description: Логин пользователя
+            in: query
+            example: 'Hon(Полный логин: "Honor")'
+            required: true
+            schema:
+              type: string
+          responses:
+            '200':
+              description: Пользователь успешно найден
+              content:
+                application/json: {}
+            '404':
+              description: Пользователь не найден
+
+      /searchFL:
+        get:
+          tags:
+          - default
+          summary: Поиск пользователя по маске имени и фамилии
+          parameters:
+          - name: first_name
+            description: Имя
+            in: query
+            example: 'Вал(полное имя Валерий)'
+            required: true
+            schema:
+              type: string
+          - name: last_name
+            description: Фамилия
+            in: query
+            example: 'Поп(полная фамилия Попов)'
+            required: false
+            schema:
+              type: string
+          responses:
+            '200':
+              description: Пользователь успешно найден
+              content:
+                application/json: {}
+            '404':
+              description: Пользователь не найден
+
+      /auth:
+        get:
+          summary: Авторизация пользователя
+          parameters:
+          - name: way
+            description: Способ авторизации пользователя
+            in: query
+            schema:
+              type: string
+            example: 'login | email | phone_number'
+            required: true
+          - name: cont
+            description: Значение для авторизации
+            in: query
+            schema:
+              type: string
+            example: 'nomercy | nomercy@yandex.ru | 88005678998 '
+            required: true
+          - name: password
+            description: Пароль пользователя
+            in: query
+            schema:
+              type: string
+            example: 'dfjksdj'
+            required: true
+          responses:
+            '200':
+              description: Пользователь успешно авторизирован
+              content:
+                application/json: {}
+            '404':
+              description: Пользователь не найден
+
+        post:
+          tags:
+          - default
+          summary: Регистрация нового пользователя
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    first_name:
+                      type: string
+                      example: 'Валерий'
+                    last_name:
+                      type: string
+                      example: 'Попов'
+                    email:
+                      type: string
+                      example: 'gdhj@yandex.com'
+                    login:
+                      type: string
+                      example: 'Flammen'
+                    password:
+                      type: string
+                      example: 'fjksdjfk'
+          responses:
+            '200':
+              description: Пользователь успешно зарегистрирован
+              content:
+                application/json: {}
+  
+  - url: http://localhost:8083
+    description: service_app
+    paths:
+      /service:
+        get:
+          tags: 
+          - default
+          summary: Тест конекта
+          responses:
+            '200':
+              description: Sucessful response
+              content:
+                application/json: {}
+        post:
+          tags:
+          - default
+          summary: Добавление новой услуги
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    caption:
+                      type: string
+                      example: 'Ремонт ПК'
+                    category:
+                      type: string
+                      example: 'Общие'
+                    description:
+                      type: string
+                      example: 'Описание услуги один выполняется для ...'
+                    price:
+                      type: integer
+                      example: '1234567'
+          responses:
+            '200':
+              description: 'Услуга успешно добавлена'
+              content:
+                application/json: {}
+
+      /list:
+        get:
+          tags:
+          - default
+          summary: Получение списка услуг
+          responses:
+            '200': 
+              description: 'Список услуг получен'
+              content:
+                application/json: {}
+      
+      /searchID:
+        get:
+          tags:
+          - default
+          summary: Получение услуги по идентификатору
+          parameters:
+          - name: id
+            description: Идентификатор услуги
+            schema:
+              type: string
+            required: true
+            example: '1'
+          responses:
+            '200':
+              description: 'Услуга успешно найдена'
+              content:
+                application/json: {}
+            '404':
+              description: 'Услуга не найдена'
+      
+      /searchCap:
+        get:
+          tags:
+          - default
+          summary: Получение услуги по названию
+          parameters:
+          - name: cap
+            description: Наименование услуги
+            schema:
+              type: string
+            required: true
+            example: 'Рем(полное Ремон...)'
+          responses:
+            '200':
+              description: 'Услуги успешно найдены'
+              content:
+                application/json: {}
+            '404':
+              description: 'Услуга не найдена'
+
+  - url: http://localhost:8084
+    description: order_app
+    paths:
+      /order:
+        get:
+          tags: 
+          - default
+          summary: Тест конекта
+          responses:
+            '200':
+              description: Sucessful response
+              content:
+                application/json: {}
+
+        post:
+          tags:
+          - default
+          summary: Добавление нового заказа; Добавление услуги в заказ
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    id_user:
+                      type: integer
+                    id_service:
+                      type: integer
+                      example: '1'
+                    order_date:
+                      type: string
+                      example: '21-11-12'
+                    status:
+                      type: string
+                      example: 'DONE'
+          responses:
+            '202':
+              description: 'Заказ успешно добавлен'
+              content:
+                application/json: {}
+
+      /searchID:
+        get:
+          tags:
+          - default
+          summary: Поиск заказа в системе
+          parameters:
+          - name: id
+            description: Идентификатор заказа
+            example: '1'
+            required: true
+            shema:
+              type: string
+          responses:
+            '200':
+              description: Заказ найден успешно
+              content:
+                application/json: {}
+
+      /searchUIO:
+        get:
+          tags:
+          - default
+          summary: Поиск заказов по пользователю
+          parameters:
+          - name: id_user
+            description: Идентификатор пользователя
+            required: true
+            example: '2'
+            shema:
+              type: integer
+          responses:
+            '200':
+              description: Список заказов успешно сформирован
+              content:
+                application/json: {}
+      
+      /addservice:
+        post:
+          tags:
+          - default
+          summary: Добавление услуги в заказ
+          parameters:
+          - name: id
+            description: Идентификатор заказа
+            required: true
+            example: '1'
+            shema:
+              type: integer
+          - name: id_user
+            description: Идентификатор пользователя
+            required: true
+            example: '2'
+            shema:
+              type: integer
+          - name: id_service
+            description: Идентификатор сервиса для добавления
+            required: true
+            example: '1'
+            shema:
+              type: integer
+        responses:
+          '200':
+            description: Успешное добавление услуги в заказ
+            content:
+              application/json: {}
