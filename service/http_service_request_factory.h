@@ -1,5 +1,5 @@
-#ifndef HTTP_USER_REQUEST_FACTORY_H
-#define HTTP_USER_REQUEST_FACTORY_H
+#ifndef HTTP_SERVICE_REQUEST_FACTORY_H
+#define HTTP_SERVICE_REQUEST_FACTORY_H
 
 #include "Poco/Net/HTTPServer.h"
 #include "Poco/Net/HTTPRequestHandler.h"
@@ -38,8 +38,7 @@ using Poco::Util::OptionSet;
 using Poco::Util::OptionCallback;
 using Poco::Util::HelpFormatter;
 
-
-#include "user_handler.h"
+#include "service_handler.h"
 
 
 class HTTPRequestFactory: public HTTPRequestHandlerFactory
@@ -55,11 +54,10 @@ public:
     {
 
         std::cout << "request:" << request.getURI()<< std::endl;
-        if (hasSubstr(request.getURI(),"/user") ||
-            hasSubstr(request.getURI(),"/search") ||
-            hasSubstr(request.getURI(),"/auth") ||
-            hasSubstr(request.getURI(),"/searchL")) 
-            return new UserHandler(_format);
+        if (hasSubstr(request.getURI(),"/searchCap") ||
+            hasSubstr(request.getURI(),"/searchID") ||
+            hasSubstr(request.getURI(),"/list")) 
+            return new ServiceHandler(_format);
         return 0;
     }
 

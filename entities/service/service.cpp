@@ -1,5 +1,5 @@
 #include "service.h"
-#include "database.h"
+#include "../../database/database.h"
 #include "../../config/config.h"
 
 #include <Poco/Data/MySQL/Connector.h>
@@ -24,12 +24,12 @@ namespace database
             {
                 Poco::Data::Session session = database::Database::get().create_session();
                 Poco::Data::Statement query(session);
-                query << " create table if not exists `Service` (`id` bigint not null auto_increment, "
-                      << " caption varchar(100) unique not null, "
-                      << " category varchar(100) unique not null, "
-                      << " description text not null, "
-                      << " price long not null, "
-                      << " constraint PK_service primary key (id) );", now;
+                query << " create table if not exists `service` (`id` bigint auto_increment, "
+                      << " `caption` varchar(255) unique not null, "
+                      << " `category` varchar(255) unique not null, "
+                      << " `description` varchar(255) not null, "
+                      << " `price` int not null, "
+                      << " constraint `PK_service` primary key (`id`) );", now;
             }
 
         catch (Poco::Data::MySQL::ConnectionException &e)
@@ -49,11 +49,11 @@ namespace database
     {
         Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
 
-        root -> set("id", id);
-        root -> set("caption", caption);
-        root -> set("category", category);
-        root -> set("description", description);
-        root -> set("price", price);
+        root -> set("id", id_);
+        root -> set("caption", caption_);
+        root -> set("category", category_);
+        root -> set("description", description_);
+        root -> set("price", price_);
 
         return root; 
     }
@@ -74,7 +74,7 @@ namespace database
         return service;
     }
 
-    std::optional<Service> Service::read_by_id(long id)
+    std::optional<Service> Service::get_by_id(long id)
     {
         try
         {
@@ -108,31 +108,30 @@ namespace database
         return {};
     }
 
-    std::vector<Service> Service::read_all()
+    std::vector<Service> Service::get_all()
     {
         try
         {
             Poco::Data::Session session = database::Database::get().create_session();
-            Poco::Data::Statement query(session);
-            std::vector<Service> res;
+            Poco::Data::Statement select(session);
+            std::vector<Service> result;
             Service obj;
-            query << "Select id, caption, category, description, price from service",
-            into(obj.caption_),
-            into(obj.category_),
-            into(obj.id_),
-            into(obj.description_),
-            into(obj.price_),
-            range(0, 1);
-            while(!query.done())
-            {
-                if(query.execute())
-                {
-                    res.push_back(obj);
-                }
-            }
-            return res;
-        }
 
+            select << "Select id, caption, category, description, price from service",
+                into(obj.id_),
+                into(obj.caption_),
+                into(obj.category_),
+                into(obj.description_),
+                into(obj.price_),
+                range(0, 1);
+
+            while(!select.done())
+            {
+                if(select.execute())  
+                    result.push_back(obj);
+            }
+            return result;
+        }
         catch (Poco::Data::MySQL::ConnectionException &e)
         {
             std::cout << "connection:" << e.what() << std::endl;
@@ -140,13 +139,12 @@ namespace database
         }
         catch (Poco::Data::MySQL::StatementException &e)
         {
-
             std::cout << "statement:" << e.what() << std::endl;
             throw;
         }
     }
 
-    std::optional<Service> Service::search_by_caption(const std::string& data)
+    std::optional<Service> Service::get_by_caption(std::string data)
     {
         try
         {
@@ -187,7 +185,7 @@ namespace database
             Poco::Data::Session session = database::Database::get().create_session();
             Poco::Data::Statement query(session);
             
-            query << " insert into serv_store.service(caption, category, description, price) values (?, ?, ?, ?, ?) ",
+            query << " insert into serv_store.service(caption, category, description, price) values (?, ?, ?, ?) ",
                 use(caption_),
                 use(category_),
                 use(description_),

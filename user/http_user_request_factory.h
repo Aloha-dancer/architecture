@@ -1,5 +1,5 @@
-#ifndef HTTP_ORDER_REQUEST_FACTORY_H
-#define HTTP_ORDER_REQUEST_FACTORY_H
+#ifndef HTTP_USER_REQUEST_FACTORY_H
+#define HTTP_USER_REQUEST_FACTORY_H
 
 #include "Poco/Net/HTTPServer.h"
 #include "Poco/Net/HTTPRequestHandler.h"
@@ -38,7 +38,8 @@ using Poco::Util::OptionSet;
 using Poco::Util::OptionCallback;
 using Poco::Util::HelpFormatter;
 
-#include "order_handler.h"
+
+#include "user_handler.h"
 
 
 class HTTPRequestFactory: public HTTPRequestHandlerFactory
@@ -54,10 +55,12 @@ public:
     {
 
         std::cout << "request:" << request.getURI()<< std::endl;
-        if (hasSubstr(request.getURI(),"/user") ||
-            hasSubstr(request.getURI(),"/search") ||
-            hasSubstr(request.getURI(),"/auth")) 
-            return new OrderHandler(_format);
+        if (hasSubstr(request.getURI(),"/searchID") ||
+            hasSubstr(request.getURI(),"/searchLog") ||
+            hasSubstr(request.getURI(),"/auth") ||
+            hasSubstr(request.getURI(),"/searchFL") ||
+            hasSubstr(request.getURI(),"/user")) 
+            return new UserHandler(_format);
         return 0;
     }
 

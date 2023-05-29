@@ -5,7 +5,6 @@ project(hl_server C CXX)
 SET(USER_SERVICE "user_service")
 SET(SERVING_SERVICE "serving_service")
 SET(ORDER_SERVICE "order_service")
-
 find_package(OpenSSL)
 find_package(Threads)
 find_package(ZLIB)
@@ -25,18 +24,18 @@ SET(CMAKE_CXX_STANDARD 17)
 SET(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
-add_executable(${AUTH_SERVICE} auth_main.cpp
+add_executable(${USER_SERVICE}  user_main.cpp
                                 config/config.cpp
                                 database/database.cpp
                                 entities/user/user.cpp)
 
 
-target_include_directories(${AUTH_SERVICE} PRIVATE "${CMAKE_BINARY_DIR}")
-target_compile_options(${AUTH_SERVICE} PRIVATE -Wall -Wextra -pedantic -Werror )
-set_target_properties(${AUTH_SERVICE} PROPERTIES LINKER_LANGUAGE CXX)
-set_target_properties(${AUTH_SERVICE} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+target_include_directories(${USER_SERVICE} PRIVATE "${CMAKE_BINARY_DIR}")
+target_compile_options(${USER_SERVICE} PRIVATE -Wall -Wextra -pedantic -Werror )
+set_target_properties(${USER_SERVICE} PROPERTIES LINKER_LANGUAGE CXX)
+set_target_properties(${USER_SERVICE} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 
-target_link_libraries(${AUTH_SERVICE} PRIVATE 
+target_link_libraries(${USER_SERVICE} PRIVATE 
                              ${CMAKE_THREAD_LIBS_INIT} 
                              ${Poco_LIBRARIES}
                              "PocoData"
@@ -45,17 +44,17 @@ target_link_libraries(${AUTH_SERVICE} PRIVATE
                              ZLIB::ZLIB)
 
 add_executable(${SERVING_SERVICE} service_main.cpp
-                             config/config.cpp
-                             database/database.cpp
-                             entities/service/service.cpp)
+                                  config/config.cpp
+                                  database/database.cpp
+                                  entities/service/service.cpp)
 
 
-target_include_directories(${SERVICE_SERVICE} PRIVATE "${CMAKE_BINARY_DIR}")
-target_compile_options(${SERVICE_SERVICE} PRIVATE -Wall -Wextra -pedantic -Werror )
-set_target_properties(${SERVICE_SERVICE} PROPERTIES LINKER_LANGUAGE CXX)
-set_target_properties(${SERVICE_SERVICE} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+target_include_directories(${SERVING_SERVICE} PRIVATE "${CMAKE_BINARY_DIR}")
+target_compile_options(${SERVING_SERVICE} PRIVATE -Wall -Wextra -pedantic -Werror )
+set_target_properties(${SERVING_SERVICE} PROPERTIES LINKER_LANGUAGE CXX)
+set_target_properties(${SERVING_SERVICE} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 
-target_link_libraries(${SERVICE_SERVICE} PRIVATE 
+target_link_libraries(${SERVING_SERVICE} PRIVATE 
                           ${CMAKE_THREAD_LIBS_INIT} 
                           ${Poco_LIBRARIES}
                           "PocoData"
@@ -64,9 +63,9 @@ target_link_libraries(${SERVICE_SERVICE} PRIVATE
                           ZLIB::ZLIB)
 
 add_executable(${ORDER_SERVICE} order_main.cpp
-                          config/config.cpp
-                          database/database.cpp
-                          entities/order/order.cpp)
+                                config/config.cpp
+                                database/database.cpp
+                                entities/order/order.cpp)
 
 
 target_include_directories(${ORDER_SERVICE} PRIVATE "${CMAKE_BINARY_DIR}")

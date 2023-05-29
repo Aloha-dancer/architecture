@@ -1,5 +1,5 @@
 #include "user.h"
-#include "database.h"
+#include "../../database/database.h"
 #include "../../config/config.h"
 
 #include <Poco/Data/MySQL/Connector.h>
@@ -26,7 +26,7 @@ namespace database
 
             Poco::Data::Session session = database::Database::get().create_session();
             Statement create_stmt(session);
-            create_stmt << "CREATE TABLE IF NOT EXISTS `User` (`id` INT NOT NULL AUTO_INCREMENT,"
+            create_stmt << "CREATE TABLE IF NOT EXISTS `user` (`id` BIGINT AUTO_INCREMENT,"
                         << "`first_name` VARCHAR(256) NOT NULL,"
                         << "`last_name` VARCHAR(256) NOT NULL,"
                         << "`login` VARCHAR(256) NOT NULL,"
@@ -81,14 +81,16 @@ namespace database
         return user;
     }
 
-    std::optional<long> User::auth(std::string &login, std::string &password)
+    std::optional<long> User::auth(std::string &login, std::string &password, long& type)
     {
+        std::string selectstat = ((type == 1) ? "SELECT id FROM User where login=? and password=?" :
+                                    "SELECT id FROM User where email=? and password=?");
         try
         {
             Poco::Data::Session session = database::Database::get().create_session();
             Poco::Data::Statement select(session);
             long id;
-            select << "SELECT id FROM User where login=? and password=?",
+            select << selectstat,
                 into(id),
                 use(login),
                 use(password),
@@ -110,14 +112,17 @@ namespace database
         }
         return {};
     }
-    std::optional<User> User::read_by_id(long id)
+    std::optional<User> User::get_by_id(long id)
     {
+        std::cout << 2;
         try
         {
             Poco::Data::Session session = database::Database::get().create_session();
             Poco::Data::Statement select(session);
+            std::cout << 1;
             User a;
-            select << "SELECT id, first_name, last_name, email, login,password FROM User where id=?",
+            std::string selector = "SELECT id, first_name, last_name, email, login, password FROM user where id=?";
+            select << selector,
                 into(a._id),
                 into(a._first_name),
                 into(a._last_name),
@@ -125,8 +130,7 @@ namespace database
                 into(a._login),
                 into(a._password),
                 use(id),
-                range(0, 1); //  iterate over result set one row at a time
-
+                range(0, 1);
             select.execute();
             Poco::Data::RecordSet rs(select);
             if (rs.moveFirst()) return a;
@@ -145,15 +149,15 @@ namespace database
         return {};
     }
 
-    std::vector<User> User::read_all()
+    std::vector<User> User::get_all()
     {
         try
         {
             Poco::Data::Session session = database::Database::get().create_session();
-            Statement select(session);
+            Poco::Data::Statement select(session);
             std::vector<User> result;
             User a;
-            select << "SELECT id, first_name, last_name, email, login, password FROM User",
+            select << "SELECT id, first_name, last_name, email, login, password FROM user",
                 into(a._id),
                 into(a._first_name),
                 into(a._last_name),
@@ -183,7 +187,7 @@ namespace database
         }
     }
 
-    std::vector<User> User::search(std::string first_name, std::string last_name)
+    std::vector<User> User::get_by_name_mask(std::string first_name, std::string last_name)
     {
         try
         {
@@ -193,7 +197,7 @@ namespace database
             User a;
             first_name += "%";
             last_name += "%";
-            select << "SELECT id, first_name, last_name, email, login, password FROM User where first_name LIKE ? and last_name LIKE ?",
+            select << "SELECT id, first_name, last_name, email, login, password FROM user where first_name LIKE ? and last_name LIKE ?",
                 into(a._id),
                 into(a._first_name),
                 into(a._last_name),
@@ -226,7 +230,7 @@ namespace database
         return {};
     }
 
-    std::optional<User> User::search_by_login(std::string& login)
+    std::optional<User> User::get_by_login(std::string& login)
     {
 
         try
@@ -234,8 +238,8 @@ namespace database
             Poco::Data::Session session = database::Database::get().create_session();
             Poco::Data::Statement query(session);
             User a;
-            login.insert(0, 1, '%');
-            login.insert(login.length() - 1, 1, '%'); 
+            std::string tmp = login + "%";
+            login = "%" + tmp; 
             query << "select id, first_name, last_name, email, login, password from serv_store.user "
                   << " where login like ? ",
             into(a._id),
@@ -272,7 +276,7 @@ namespace database
             Poco::Data::Session session = database::Database::get().create_session();
             Poco::Data::Statement insert(session);
 
-            insert << "INSERT INTO User (first_name,last_name,email,login,password) VALUES(?, ?, ?, ?, ?, ?)",
+            insert << "INSERT INTO user (first_name,last_name,email,login,password) VALUES(?, ?, ?, ?, ?)",
                 use(_first_name),
                 use(_last_name),
                 use(_email),
@@ -365,4 +369,28 @@ namespace database
         return _email;
     }
 
+    void User::set_fn(std::string name)
+    {
+        _first_name = name;
+    }
+
+    void User::set_ln(std::string ln)
+    {
+        _last_name = ln;
+    }
+
+    void User::set_em(std::string email)
+    {
+        _email = email;
+    }
+
+    void User::set_log(std::string login)
+    {
+        _login = login;
+    }
+
+    void User::set_pwd(std::string pwd)
+    {
+        _password = pwd;
+    }
 }

@@ -1,5 +1,5 @@
-#ifndef HTTP_SERVICE_REQUEST_FACTORY_H
-#define HTTP_SERVICE_REQUEST_FACTORY_H
+#ifndef HTTP_ORDER_SERVER_H
+#define HTTP_ORDER_SERVER_H
 
 #include "Poco/Net/HTTPServer.h"
 #include "Poco/Net/HTTPRequestHandler.h"
@@ -38,31 +38,47 @@ using Poco::Util::OptionSet;
 using Poco::Util::OptionCallback;
 using Poco::Util::HelpFormatter;
 
-#include "service_handler.h"
+#include "../entities/order/order.h"
+#include "http_order_request_factory.h"
 
-
-class HTTPRequestFactory: public HTTPRequestHandlerFactory
+class HTTPOrderServer : public Poco::Util::ServerApplication
 {
 public:
-    HTTPRequestFactory(const std::string& format):
-        _format(format)
+    HTTPOrderServer() : _helpRequested(false)
     {
     }
 
-    HTTPRequestHandler* createRequestHandler(
-        const HTTPServerRequest& request)
+    ~HTTPOrderServer()
     {
+    }
 
-        std::cout << "request:" << request.getURI()<< std::endl;
-        if (hasSubstr(request.getURI(),"/user") ||
-            hasSubstr(request.getURI(),"/search") ||
-            hasSubstr(request.getURI(),"/auth")) 
-            return new ServiceHandler(_format);
-        return 0;
+protected:
+    void initialize(Application &self)
+    {
+        loadConfiguration();
+        ServerApplication::initialize(self);
+    }
+
+    void uninitialize()
+    {
+        ServerApplication::uninitialize();
+    }
+
+    int main([[maybe_unused]] const std::vector<std::string> &args)
+    {
+        if (!_helpRequested)
+        {
+            database::Order::init();
+            ServerSocket svs(Poco::Net::SocketAddress("0.0.0.0", 8084));
+            HTTPServer srv(new HTTPRequestFactory(DateTimeFormat::SORTABLE_FORMAT), svs, new HTTPServerParams);
+            srv.start();
+            waitForTerminationRequest();
+            srv.stop();
+        }
+        return Application::EXIT_OK;
     }
 
 private:
-    std::string _format;
+    bool _helpRequested;
 };
-
 #endif

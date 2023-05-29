@@ -1,10 +1,10 @@
-version: '3.3'
+version: '2.4'
 
 services:
   my_db-node-01:
     build:
-      context: mariadb
-      dockerfile: Dockerfile
+      context: ./
+      dockerfile: mariadb/Dockerfile
     container_name: my_db-node-01
     restart: unless-stopped
     environment:
@@ -29,11 +29,15 @@ services:
 
   user_service:
     build:
-      context: apps/user
-      dockerfile: Dockerfile
-    container_name: user_applicaiton
-    env_file:
-      - .env
+      context: ./
+      dockerfile: user/Dockerfile
+    container_name: user_service
+    environment:
+      - DB_HOST=my_db-node-01
+      - DB_PORT=3306
+      - DB_LOGIN=myyuser
+      - DB_PASSWORD=123
+      - DB_DATABASE=serv_store
     ports:
       - 8082:8082
     networks:
@@ -42,13 +46,17 @@ services:
       my_db-node-01:
         condition: service_healthy
   
-  service_service:
+  serving_service:
     build:
-      context: apps/service
-      dockerfile: Dockerfile
-    container_name: service_application
-    env_file:
-      - .env
+      context: ./
+      dockerfile: service/Dockerfile
+    container_name: serving_service
+    environment:
+      - DB_HOST=my_db-node-01
+      - DB_PORT=3306
+      - DB_LOGIN=myyuser
+      - DB_PASSWORD=123
+      - DB_DATABASE=serv_store
     ports:
       - 8083:8083
     networks:
@@ -59,13 +67,17 @@ services:
   
   order_service:
     build:
-      context: apps/order
-      dockerfile: Dockerfile
-    container_name: order_application
-    env_file:
-      - .env
+      context: ./
+      dockerfile: order/Dockerfile
+    container_name: order_service
+    environment:
+      - DB_HOST=my_db-node-01
+      - DB_PORT=3306
+      - DB_LOGIN=myyuser
+      - DB_PASSWORD=123
+      - DB_DATABASE=serv_store
     ports:
-      - 8090:8090
+      - 8084:8084
     networks:
       - arch_network
     depends_on:

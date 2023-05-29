@@ -35,13 +35,12 @@ namespace database{
 
             static void init();
             void save_to_mysql();
-            static std::vector<Order> read_all();
-            static std::optional<Order> check_service_id(const long& id_service,
-                                                         const long& id);
-            static std::vector<Order> search_by_date(const Poco::Data::Date& date);
-            static std::vector<Order> search_by_user(const long& id_user);
-            static std::vector<Order> search_by_period(const Poco::Data::Date& par, 
-                                                       const Poco::Data::Date& fin);
+            static std::vector<Order> get_all();
+            static bool check_service_id(long id_service,
+                                         long id,
+                                         long id_user);
+            static std::vector<Order> get_by_order(long id);
+            static std::vector<Order> get_by_user(long id_user);
     };
 }
 

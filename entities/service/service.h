@@ -34,9 +34,9 @@ namespace database
             long& price();
 
             static void init();
-            static std::optional<Service> read_by_id(const long id);
-            static std::vector<Service> read_all();
-            static std::optional<Service> search_by_caption(const std::string& data);
+            static std::optional<Service> get_by_id(long id);
+            static std::vector<Service> get_all();
+            static std::optional<Service> get_by_caption(std::string data);
             void save_to_mysql();
             Poco::JSON::Object::Ptr toJSON() const;
     };

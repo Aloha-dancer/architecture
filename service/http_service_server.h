@@ -37,7 +37,7 @@ using Poco::Util::OptionCallback;
 using Poco::Util::OptionSet;
 using Poco::Util::ServerApplication;
 
-#include "../../entities/service/service.h"
+#include "../entities/service/service.h"
 #include "http_service_request_factory.h"
 
 class HTTPServiceServer: public Poco::Util::ServerApplication

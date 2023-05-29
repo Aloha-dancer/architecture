@@ -1,5 +1,5 @@
 #include "order.h"
-#include "database.h"
+#include "../../database/database.h"
 #include "../../config/config.h"
 
 #include <Poco/Data/MySQL/Connector.h>
@@ -72,7 +72,7 @@ namespace database
         Poco::JSON::Object::Ptr obj = result.extract<Poco::JSON::Object::Ptr>();
 
         ord.id() = obj -> getValue<long>("id");
-        ord.order_date() = obj -> getValue<Poco::Data::Date>("order_date");
+        ord.order_date() = obj -> getValue<std::string>("order_date");
         ord.id_service() = obj -> getValue<long>("id_service");
         ord.id_user() = obj -> getValue<long>("id_user");
         ord.status() = obj -> getValue<std::string>("status");
@@ -88,7 +88,7 @@ namespace database
         root -> set("order_date", order_date_);
         root -> set("id_service", id_service_);
         root -> set("id_user", id_user_);
-        root -> set("status", status);
+        root -> set("status", status_);
 
         return root;
     }
@@ -100,15 +100,14 @@ namespace database
             Poco::Data::Session session = database::Database::get().create_session();
             Poco::Data::Statement query(session);
 
-            query << " create table if not exists `Order` ("
-	              <<" id bigint auto_increment, "
-                  <<" id_user bigint not null, " 
-	              <<" id_service bigint not null, "
-	              <<" order_date date not null, "
-	              <<" status varchar(50) not null, "
-	              <<" constraint PK_order primary key (id), "
-	              <<" constraint fk1_order_user foreign key (id_user) references serv_store.users(id), "
-	              <<" constraint fk2_order_service foreign key (id_service) references serv_store.s_service(id)); ",
+            query << " create table if not exists `order` ("
+	              <<" `id` bigint auto_increment, "
+                  <<" `id_user` bigint not null references `user`(id), " 
+	              <<" `id_service` bigint not null references `service`(id), "
+	              <<" `order_date` varchar(256) not null, "
+	              <<" `status` varchar(256) not null, "
+	              <<" primary key (`id`, `id_user`, `id_service`), "
+                  <<" key(`order_date`));",
                   Poco::Data::Keywords::now;
 
         }
@@ -125,62 +124,94 @@ namespace database
         }
     }
 
-    std::optional<Order> Order::check_service_id(const long& id_service,
-                                                 const long& id)
-    {
-        Poco::Data::Session session = database::Database::get().create_session();
-        Poco::Data::Statement query(session);
-        Order obj;
-
-        query << " select id, id_user, id_service, order_date, status "
-              << " from order where id_service=? and id=?",
-              Poco::Data::Keywords::into(obj.id_),
-              Poco::Data::Keywords::into(obj.id_user_),
-              Poco::Data::Keywords::into(obj.id_service_),
-              Poco::Data::Keywords::into(obj.order_date_),
-              Poco::Data::Keywords::into(obj.status_),
-              Poco::Data::Keywords::use(id_service),
-              Poco::Data::Keywords::use(id),
-              Poco::Data::Keywords::range(0, 1);
-
-        query.execute();
-        Poco::Data::RecordSet rs(query);
-        if(rs.moveFirst()) {return obj;}
-    }
-/*
-    std::optional<Order> Order::read_by_id(const long& id)
-    {
-        Poco::Data::Session session = database::Database::get().create_session();
-        Poco::Data::Statement query(session);
-        Order obj;
-
-        query << " select id, id_user, id_service, order_date, status from order " 
-              << " where id=?",
-              Poco::Data::Keywords::into(obj.id_),
-              Poco::Data::Keywords::into(obj.id_user_),
-              Poco::Data::Keywords::into(obj.id_service_),
-              Poco::Data::Keywords::into(obj.order_date_),
-              Poco::Data::Keywords::into(obj.status_),
-              Poco::Data::Keywords::use(id),
-              Poco::Data::Keywords::range(0,1);
-
-        query.execute();
-        Poco::Data::RecordSet rs(query);
-        if(rs.moveFirst()) {return obj;}
-    }
-*/
-
-    std::vector<Order> Order::read_all()
+    bool Order::check_service_id(long id_service, long id, long id_user)
     {
         try
         {
             Poco::Data::Session session = database::Database::get().create_session();
             Poco::Data::Statement query(session);
             Order obj;
+
+            query << " select id, id_user, id_service, order_date, status "
+                  << " from `order` where id_service=? and id=? and id_user=?",
+                  Poco::Data::Keywords::into(obj.id_),
+                  Poco::Data::Keywords::into(obj.id_user_),
+                  Poco::Data::Keywords::into(obj.id_service_),
+                  Poco::Data::Keywords::into(obj.order_date_),
+                  Poco::Data::Keywords::into(obj.status_),
+                  Poco::Data::Keywords::use(id_service),
+                  Poco::Data::Keywords::use(id),
+                  Poco::Data::Keywords::use(id_user),
+                  Poco::Data::Keywords::range(0, 1);
+
+            query.execute();
+            Poco::Data::RecordSet rs(query);
+            return rs.moveFirst();
+        }
+        catch (const Poco::Data::MySQL::ConnectionException& e)
+        {
+            std::cout << "connection:" << e.what() << std::endl;
+            throw;
+        }
+        catch (const Poco::Data::MySQL::StatementException& e)
+        {
+            std::cout << "statement:" << e.what() << std::endl;
+            throw;
+        }
+        return {};
+    }
+
+    std::vector<Order> Order::get_by_user(long id_user)
+    {
+        try
+        {
+            Poco::Data::Session session = database::Database::get().create_session();
+            Poco::Data::Statement query(session);
+            Order obj;
+            std::vector<Order> result;
+            query << " select id, id_user, id_service, order_date, status from `order` " 
+                  << " where id_user=?",
+                  Poco::Data::Keywords::into(obj.id_),
+                  Poco::Data::Keywords::into(obj.id_user_),
+                  Poco::Data::Keywords::into(obj.id_service_),
+                  Poco::Data::Keywords::into(obj.order_date_),
+                  Poco::Data::Keywords::into(obj.status_),
+                  Poco::Data::Keywords::use(id_user),
+                  Poco::Data::Keywords::range(0,1);
+
+            while(!query.done())
+                {
+                    if(query.execute())
+                    {
+                        result.push_back(obj);
+                    }
+                }
+                return result;
+        }
+        catch (const Poco::Data::MySQL::ConnectionException& e)
+        {
+            std::cout << "connection:" << e.what() << std::endl;
+            throw;
+        }
+        catch (const Poco::Data::MySQL::StatementException& e)
+        {
+            std::cout << "statement:" << e.what() << std::endl;
+            throw;
+        }        
+    }
+
+    std::vector<Order> Order::get_all()
+    {
+        try
+        {  
+
+            Poco::Data::Session session = database::Database::get().create_session();
+            Poco::Data::Statement query(session);
+            Order obj;
             std::vector<Order> res;
 
-            query << " select id, id_user, id_srvice, order_date, status "
-                  << " from order",
+            query << " select id, id_user, id_service, order_date, status "
+                  << " from `order` ",
                   Poco::Data::Keywords::into(obj.id_),
                   Poco::Data::Keywords::into(obj.id_user_),
                   Poco::Data::Keywords::into(obj.id_service_),
@@ -209,7 +240,7 @@ namespace database
         }        
     }
 
-    std::vector<Order> Order::search_by_date(const Poco::Data::Date& date)
+    std::vector<Order> Order::get_by_order(long id)
     {
         try
         {
@@ -218,14 +249,14 @@ namespace database
         Order obj;
         std::vector<Order> result;
 
-        query << " select id, id_user, id_service, order_date, status from order " 
-              << " where order_date=?",
+        query << " select id, id_user, id_service, order_date, status from `order` " 
+              << " where id=?",
               Poco::Data::Keywords::into(obj.id_),
               Poco::Data::Keywords::into(obj.id_user_),
               Poco::Data::Keywords::into(obj.id_service_),
               Poco::Data::Keywords::into(obj.order_date_),
               Poco::Data::Keywords::into(obj.status_),
-              Poco::Data::Keywords::use(date),
+              Poco::Data::Keywords::use(id),
               Poco::Data::Keywords::range(0, 1);
         
         while(!query.done())
@@ -250,51 +281,6 @@ namespace database
         }   
     }
 
-    std::vector<Order> Order::search_by_period(
-        const Poco::Data::Date& par,
-        const Poco::Data::Date& fin)
-    {
-        try
-        {   
-            Poco::Data::Session session = database::Database::get().create_session();
-            Poco::Data::Statement query(session);
-            std::vector<Order> result;
-            Order obj;
-
-            query << " select id, id_user, id_service, order_date, status "
-                  << " from order"
-                  << " where order_date between ? and ?",
-                  Poco::Data::Keywords::into(obj.id_),
-                  Poco::Data::Keywords::into(obj.id_user_),  
-                  Poco::Data::Keywords::into(obj.id_service_),
-                  Poco::Data::Keywords::into(obj.order_date_),
-                  Poco::Data::Keywords::into(obj.status_),
-                  Poco::Data::Keywords::use(par),
-                  Poco::Data::Keywords::use(fin),
-                  Poco::Data::Keywords::range(0, 1);
-
-            while(!query.done())
-            {
-                if(query.execute())
-                {
-                    result.push_back(obj);
-                }
-            }
-
-            return result;
-        }
-        catch (const Poco::Data::MySQL::ConnectionException& e)
-        {
-            std::cout << "connection:" << e.what() << std::endl;
-            throw;
-        }
-        catch (const Poco::Data::MySQL::StatementException& e)
-        {
-            std::cout << "statement:" << e.what() << std::endl;
-            throw;
-        }
-    }
-
     void Order::save_to_mysql()
     {
          try
@@ -302,7 +288,7 @@ namespace database
             Poco::Data::Session session = database::Database::get().create_session();
             Poco::Data::Statement query(session);
             
-            query << " insert into order(id_user, id_service, order_date, status) values ( ?, ?, ?, ?) ",
+            query << " insert into `order`(id_user, id_service, order_date, status) values ( ?, ?, ?, ?) ",
                 Poco::Data::Keywords::use(id_user_),
                 Poco::Data::Keywords::use(id_service_),
                 Poco::Data::Keywords::use(order_date_),

@@ -23,6 +23,7 @@
 #include <iostream>
 #include <iostream>
 #include <fstream>
+#include "Poco/StreamCopier.h"
 
 using Poco::DateTimeFormat;
 using Poco::DateTimeFormatter;
@@ -44,8 +45,8 @@ using Poco::Util::OptionCallback;
 using Poco::Util::OptionSet;
 using Poco::Util::ServerApplication;
 
-#include "../../entities/service/service.h"
-#include "../../helper.h"
+#include "../entities/service/service.h"
+#include "../helper.h"
 
 static bool hasSubstr(const std::string &str, const std::string &substr)
 {
@@ -71,81 +72,91 @@ class ServiceHandler: public HTTPRequestHandler
         {
             response.setChunkedTransferEncoding(true);
             response.setContentType("application/json");
+            const std::string method = request.getMethod();
             Poco::URI uri = Poco::URI(request.getURI());
             std::string path = uri.getPath();
 
-            HTMLForm form(request, request.stream());
+            std::istream& stream = request.stream();
+            std::ostringstream oss;
+            Poco::StreamCopier::copyStream(stream, oss);
+            std::string requestBody = oss.str();
+            std::cout << "path: " << path << std::endl;
+            HTMLForm form(request, stream);
             try
             {
-                if(form.has("id") && (request.getMethod() == Poco::Net::HTTPRequest::HTTP_GET))
+                if(method == Poco::Net::HTTPRequest::HTTP_GET)
                 {
-                    const long id = atol(form.get("id").c_str());
-                    std::optional<database::Service> result = database::Service::read_by_id(id);
+                    if(hasSubstr(path, "/searchID"))
+                    { 
+                        const long id = atol(form.get("id").c_str());
+                        std::optional<database::Service> result = database::Service::get_by_id(id);
 
-                    if(result)
+                        if(result)
+                        {
+                            response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
+                            std::ostream& ostr = response.send();
+                            Poco::JSON::Stringifier::stringify(result->toJSON(), ostr);
+                            return;
+                        }
+                        else
+                        {
+                            response.setStatus(Poco::Net::HTTPResponse::HTTP_NOT_FOUND);
+                            Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
+                            root -> set("type", "/errors/not_found");
+                            root->set("title", "Internal exception");
+                            root->set("status", "404");
+                            root->set("detail", "service not found");
+                            root->set("instance", "/service");
+                            std::ostream& ostr = response.send();
+                            Poco::JSON::Stringifier::stringify(root, ostr);
+                            return;
+                        }
+                    }
+                    if(hasSubstr(request.getURI(), "/searchCap"))
                     {
+                        const std::string caption = form.get("caption");
+                        std::optional<database::Service> result = database::Service::get_by_caption(caption);
+                        if(result)
+                        {
+                            response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
+                            std::ostream& ostr = response.send();
+                            Poco::JSON::Stringifier::stringify(result, ostr);
+                            return;
+                        }
+                        else
+                        {
+                            response.setStatus(Poco::Net::HTTPResponse::HTTP_NOT_FOUND);
+                            Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
+                            root -> set("type", "/errors/not_found");
+                            root -> set("title", "Internal exception");
+                            root -> set("status", "404");
+                            root -> set("detail", "service not found");
+                            root -> set("instance", "/service");
+                            std::ostream& ostr = response.send();
+                            Poco::JSON::Stringifier::stringify(root, ostr);
+                            return;
+                        }
+                    }
+                    if (hasSubstr(request.getURI(), "/list"))
+                    {
+                        std::cout << "I am here" << std::endl;
+                        std::vector<database::Service> result = database::Service::get_all();
+                        Poco::JSON::Array array;
+                        std::cout << "Still alright" << std::endl;
+                        for (std::vector<database::Service>::iterator iter = result.begin();
+                             iter != result.end();
+                             ++iter)
+                        {
+                            array.add(*iter->toJSON());
+                        }
+                        std::cout << "still there" << std::endl;
                         response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
-                        response.setChunkedTransferEncoding(true);
-                        response.setContentType("application/json");
-                        std::ostream& ostr = response.send();
-                        Poco::JSON::Stringifier::stringify(result->toJSON(), ostr);
+                        std::ostream &ostr = response.send();
+                        Poco::JSON::Stringifier::stringify(array, ostr);
                         return;
                     }
-                    else
-                    {
-                        response.setStatus(Poco::Net::HTTPResponse::HTTP_NOT_FOUND);
-                        response.setChunkedTransferEncoding(true);
-                        response.setContentType("application/json");
-                        Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
-                        root -> set("type", "/errors/not_found");
-                        root->set("title", "Internal exception");
-                        root->set("status", "404");
-                        root->set("detail", "service not found");
-                        root->set("instance", "/service");
-                        std::ostream& ostr = response.send();
-                        Poco::JSON::Stringifier::stringify(root, ostr);
-                    }
                 }
-                else if(hasSubstr(request.getURI(), "/search"))
-                {
-                    const std::string caption = form.get("caption");
-                    std::optional<database::Service> result = database::Service::search_by_caption(caption);
-                    if(result)
-                    {
-                        response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
-                        response.setChunkedTransferEncoding(true);
-                        response.setContentType("application/json");
-                        std::ostream& ostr = response.send();
-                        Poco::JSON::Stringifier::stringify(result, ostr);
-                        return;
-                    }
-                    else
-                    {
-                        response.setStatus(Poco::Net::HTTPResponse::HTTP_NOT_FOUND);
-                        response.setChunkedTransferEncoding(true);
-                        response.setContentType("application/json");
-                        Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
-                        root -> set("type", "/errors/not_found");
-                        root -> set("title", "Internal exception");
-                        root -> set("status", "404");
-                        root -> set("detail", "service not found");
-                        root -> set("instance", "/service");
-                        std::ostream& ostr = response.send();
-                        Poco::JSON::Stringifier::stringify(root, ostr);
-                    }
-                }
-                else if (hasSubstr(request.getURI(), "/list"))
-                {
-                    std::vector<database::Service> result = database::Service::read_all();
-                    Poco::JSON::Array array;
-                    for (std::vector<database::Service>::iterator iter = result.begin();
-                         iter != result.end();
-                         ++iter)
-                    {
-                        array.add(*iter->toJSON());
-                    }
-                }
-                else if(request.getMethod() == Poco::Net::HTTPRequest::HTTP_POST)
+                if(method == Poco::Net::HTTPRequest::HTTP_POST)
                 {
                     if (form.has("caption") &&
                         form.has("description") &&
@@ -193,8 +204,6 @@ class ServiceHandler: public HTTPRequestHandler
                         {  
                             service_object.save_to_mysql();
                             response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
-                            response.setChunkedTransferEncoding(true);
-                            response.setContentType("application/json");
                             std::ostream& ostr = response.send();
                             ostr << service_object.get_id();
                             return;
