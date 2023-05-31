@@ -2,4 +2,5 @@ CMakeFiles/*
 .vscode/*
 build/*
 *_service
-
+rdkafka_version_test.cpp
+write

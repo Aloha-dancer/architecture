@@ -77,6 +77,72 @@ services:
       # Mysql Admin Port
       - "6032:6032"
   
+  cache:
+    image: redis:6.2-alpine
+    restart: always
+    ports:
+      - '6379:6379'
+    command: redis-server --save 20 1 --loglevel warning
+    networks:
+      - arch_network
+    volumes:
+      - cache:/data
+
+  kafka1:
+    image: 'bitnami/kafka:latest'
+    container_name: kafka1
+    environment:
+      KAFKA_ENABLE_KRAFT: "yes"
+      KAFKA_CFG_PROCESS_ROLES: "broker,controller"
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CFG_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+      KAFKA_CFG_ADVERTISED_LISTENERS: "PLAINTEXT://kafka1:9092"
+      KAFKA_BROKER_ID: 1
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@kafka1:9093,2@kafka2:9093"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_KRAFT_CLUSTER_ID: "N2Y2OTlhMTczZDNkNDIwM2"
+    volumes:
+      - kafka_volume1:/bitnami/kafka
+    networks:
+      - arch_network
+
+  kafka2:
+    image: 'bitnami/kafka:latest'
+    container_name: kafka2
+    environment:
+      KAFKA_ENABLE_KRAFT: "yes"
+      KAFKA_CFG_PROCESS_ROLES: "broker,controller"
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CFG_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+      KAFKA_CFG_ADVERTISED_LISTENERS: "PLAINTEXT://kafka2:9092"
+      KAFKA_BROKER_ID: 2
+      KAFKA_CFG_NODE_ID: 2
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@kafka1:9093,2@kafka2:9093"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_KRAFT_CLUSTER_ID: "N2Y2OTlhMTczZDNkNDIwM3"
+    volumes:
+      - kafka_volume2:/bitnami/kafka
+    networks:
+      - arch_network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.4.0
+    ports:
+      - "8888:8082"
+    environment:
+      KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092"
+      KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS: "localhost:9092"
+      KAFKA_CLUSTERS_0_NAME: "social_network"
+    networks:
+      - arch_network
+
+
+
   user_service:
     build:
       context: ./
@@ -88,6 +154,10 @@ services:
       - DB_LOGIN=myyuser
       - DB_PASSWORD=123
       - DB_DATABASE=serv_store
+      - CACHE=cache:6379
+      - QUEUE_HOST=kafka1:9092
+      - QUEUE_TOPIC=service
+      - QUEUE_GROUP_ID=0
     ports:
       - 8082:8082
     networks:
@@ -96,6 +166,7 @@ services:
     -  my_db-node-01
     -  my_db-node-02
     -  proxysql
+    -  cache
     
   serving_service:
     build:
@@ -108,6 +179,7 @@ services:
       - DB_LOGIN=myyuser
       - DB_PASSWORD=123
       - DB_DATABASE=serv_store
+      - CACHE=cache:6379
     ports:
       - 8083:8083
     networks:
@@ -116,6 +188,7 @@ services:
     - my_db-node-01
     - my_db-node-02
     - proxysql
+    - cache
   
   order_service:
     build:
@@ -128,6 +201,7 @@ services:
       - DB_LOGIN=myyuser
       - DB_PASSWORD=123
       - DB_DATABASE=serv_store
+      - CACHE=cache:6379
     ports:
       - 8084:8084
     networks:
@@ -136,11 +210,35 @@ services:
     -  my_db-node-01
     -  my_db-node-02
     -  proxysql
+    -  cache
+
+
+  writer:
+    build:
+      context: ./
+      dockerfile: docker/Dockerfile
+    container_name: writer
+    environment:
+      - DB_HOST=proxysql
+      - DB_PORT=6033
+      - DB_LOGIN=myyuser
+      - DB_PASSWORD=123
+      - DB_DATABASE=serv_store
+      - CACHE=cache:6379
+      - QUEUE_HOST=kafka1:9092
+      - QUEUE_TOPIC=service
+      - QUEUE_GROUP_ID=0
+    networks:
+      - arch_network
+
 
 volumes:
   my_db-node-01-data:
   my_db-node-02-data:
   proxysql-data:
+  cache:
+  kafka_volume1:
+  kafka_volume2:
 
 networks:
   arch_network:

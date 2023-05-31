@@ -20,6 +20,7 @@ namespace database{
             static size_t get_max_shard();
             static std::string sharding_hint(long from,long to);
             static std::vector<std::string> get_all_hints();
+
             
     };
 }

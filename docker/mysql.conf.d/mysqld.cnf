@@ -48,6 +48,7 @@ log_throttle_queries_not_using_indexes  = 0
 min_examined_row_limit                  = 100
 slow_query_log_file                     = /var/log/mysql/slow.log
 
+
 # ----------------------------------------------------------------
 
 # By default we only accept connections from localhost

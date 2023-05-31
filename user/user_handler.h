@@ -146,19 +146,30 @@ public:
                 if (hasSubstr(path, "/searchID"))
                 {
                     long id = stol(form.get("id", "0"));
+                    bool add_cache = request.get("Cache-Control", "no-cache") == "cache";
                     std::cout << id << std::endl;
-                    std::cout << typeid(id).name() << std::endl;
-                    std::optional<database::User> result = database::User::get_by_id(id);
+                    std::optional<database::User> result;
+                    if(add_cache)
+                    {
+                        result = database::User::from_cache(id);
+                    }
+                    else
+                    {
+                        result = database::User::get_by_id(id);
+                    }
                     std::cout << 3;
                     if (result)
                     {   
+                        if (add_cache) result->save_to_cache();
                         response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
                         std::ostream& ostr = response.send();
                         Poco::JSON::Stringifier::stringify(remove_password(result->toJSON()), ostr);
+                        std::cout << "Correctly found" << std::endl;
                         return;
                     }
                     else
                     {
+                        std::cout << "not success" << std::endl;
                         response.setStatus(Poco::Net::HTTPResponse::HTTPStatus::HTTP_NOT_FOUND);
                         Poco::JSON::Object::Ptr root = new Poco::JSON::Object();
                         root->set("type", "/errors/not_found");
@@ -261,9 +272,9 @@ public:
             }
             if (method == Poco::Net::HTTPRequest::HTTP_POST)
             {
+                response.setStatus(Poco::Net::HTTPResponse::HTTPStatus::HTTP_OK);
                 if (hasSubstr(path, "/auth"))
                 {
-                        response.setStatus(Poco::Net::HTTPResponse::HTTPStatus::HTTP_OK);
                         std::ostream& stream = response.send();
                         std::cout << "I am here" << std::endl;
                         database::User user;
@@ -295,11 +306,20 @@ public:
                     user.set_em(email);
                     user.set_log(login);
                     user.set_pwd(password);
-
-                    user.save_to_mysql();
+                    try
+                    {
+                        int i = 0;
+                        user.send_to_queue();
+                        std::cout << "Send to queue: " << std::to_string(++i) << std::endl;
+                        stream << "{\"result\":true}";
+                        return;
+                    }
+                    catch(const std::exception& e)
+                    {
+                        stream << "{\"error_message\":\"" + (std::string)e.what() + "\"}";
+                        return;
+                    }
                     std::cout << "Perfekt" << std::endl;
-                    response.setStatus(Poco::Net::HTTPResponse::HTTPStatus::HTTP_OK);
-                    response.send() << user.get_id();
                     return;
                 }
             }

@@ -1,17 +1,19 @@
 #include "user.h"
 #include "../../database/database.h"
 #include "../../config/config.h"
-
+#include "../../database/cache.h"
 #include <Poco/Data/MySQL/Connector.h>
 #include <Poco/Data/MySQL/MySQLException.h>
 #include <Poco/Data/SessionFactory.h>
 #include <Poco/Data/RecordSet.h>
 #include <Poco/JSON/Parser.h>
 #include <Poco/Dynamic/Var.h>
-
+#include <cppkafka/configuration.h>
+#include <cppkafka/producer.h>
+#include <cppkafka/message_builder.h>
 #include <sstream>
 #include <exception>
-
+#include <mutex>
 using namespace Poco::Data::Keywords;
 using Poco::Data::Session;
 using Poco::Data::Statement;
@@ -428,5 +430,73 @@ namespace database
     void User::set_pwd(std::string pwd)
     {
         _password = pwd;
+    }
+
+      std::optional<User> User::from_cache(long id)
+    {
+        try
+        {
+            std::string result;
+            database::Cache cache = database::Cache::get_instance();
+
+            if (cache.get(id, result)) return User::fromJSON(result);
+        }
+        catch (std::exception& e)
+        {
+            std::cout << e.what() << std::endl;
+        }
+
+        return {};
+    }
+
+     void User::save_to_cache()
+    {
+        std::stringstream stream;
+        Poco::JSON::Stringifier::stringify(toJSON(), stream);
+        std::string json = stream.str();
+        database::Cache::get_instance().put(_id, json);
+    }
+
+    void User::send_to_queue()
+    {
+        static cppkafka::Configuration configuration =
+        {
+            { "metadata.broker.list", Config::get().get_queue_host() },
+            { "acks", "all" }
+        };
+        static cppkafka::Producer producer(configuration);
+        static std::mutex mutex;
+        static int message_key{0};
+        using header = cppkafka::MessageBuilder::HeaderType;
+
+        std::lock_guard<std::mutex> lock(mutex);
+        std::stringstream stream;
+        Poco::JSON::Stringifier::stringify(toJSON(), stream);
+        std::string message = stream.str();
+        bool sent = false;
+
+        cppkafka::MessageBuilder builder(Config::get().get_queue_topic());
+        std::string message_key_str = std::to_string(++message_key);
+        builder.key(message_key_str);
+        builder.header(
+            header {"some_header", "some_header"}
+        );
+        builder.payload(message);
+        producer.set_timeout(std::chrono::milliseconds(10000));
+        producer.produce(builder);
+
+        while (!sent)
+        {
+            try
+            {
+                producer.produce(builder);
+                sent = true;
+            }
+            catch (std::exception &e)
+            {
+                std::string exception_message = e.what();
+                std::cout << "Kafka exception: " + exception_message << std::endl;
+            }
+        }
     }
 }

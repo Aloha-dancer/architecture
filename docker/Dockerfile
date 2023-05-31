@@ -9,6 +9,7 @@ RUN apt-get clean && apt-get update --fix-missing && \
 COPY docker/my.cnf /etc/mysql/
 COPY docker/mysql.conf.d/ /etc/mysql/mysql.conf.d/
 
+
 # Touching log files
 RUN touch -a /var/log/mysql/error.log && chown mysql:adm /var/log/mysql/error.log
 RUN touch -a /var/log/mysql/general.log && chown mysql:adm /var/log/mysql/general.log
